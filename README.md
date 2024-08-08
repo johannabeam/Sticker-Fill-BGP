@@ -13,3 +13,4 @@ Finally, the last section of code makes stickers just for the top of the tissue/
 **IMPORTANT TO NOTE** This template (at least the one I am using) is a bit funky. You only fill every other cell (the large squares) and every other row. This code will do that for you. Just be sure that your template fits this format!
 
 Eventually, I will make the code run so that you input variables and it will run, but that's not something that I have time to do at the moment. 
+Another thing that I will want to code in is skipping a certain # of rows when filling the sheet. That way partially used sticker sheets can be used just by specifing the number of rows to skip before starting to fill.
