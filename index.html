@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Python App</title>
+    <link rel="stylesheet" href="styles.css"> <!-- Optional: if you want to style it -->
+    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+</head>
+<body>
+    <h1>Welcome to the sticker-fill site!</h1>
+
+    <!-- Input Form to Interact with Python Code -->
+    <div>
+        <label for="name-input">Enter your name:</label>
+        <input type="text" id="name-input" placeholder="Type your name">
+        <button id="submit-button">Submit</button>
+    </div>
+
+    <h2>Result:</h2>
+    <p id="result"></p>
+
+    <!-- PyScript Block to Write and Execute Python Code -->
+    <py-script>
+        from js import document
+
+        # Get the input and result elements from the DOM
+        input_element = document.getElementById("name-input")
+        result_element = document.getElementById("result")
+        submit_button = document.getElementById("submit-button")
+
+        # Function that will run when the user clicks the button
+        def on_button_click(event):
+            name = input_element.value
+            if name:
+                greeting = f"Hello, {name}!"
+                result_element.textContent = greeting
+            else:
+                result_element.textContent = "Please enter a name."
+
+        # Attach event listener to the button
+        submit_button.addEventListener("click", on_button_click)
+    </py-script>
+
+</body>
+</html>
