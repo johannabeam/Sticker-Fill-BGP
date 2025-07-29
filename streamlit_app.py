@@ -75,18 +75,44 @@ def load_csv_with_encodings(csv_file):
     return None
 
 # Function for Side Labels formatting
-def format_side_labels(row):
+def format_side_labels(row, column_mapping=None):
+    # Use column mapping if provided
+    if column_mapping:
+        species_code = row[column_mapping['Species_code']]
+        sample_type = row[column_mapping['Sample Type']]
+        band_no = row[column_mapping['Band_no']]
+        date = row[column_mapping['Date']]
+        city_town = row[column_mapping['CityTown']]
+        state = row[column_mapping['State']]
+        country_code = row[column_mapping['Country_code']]
+    else:
+        species_code = row['Species_code']
+        sample_type = row['Sample Type']
+        band_no = row['Band_no']
+        date = row['Date']
+        city_town = row['CityTown']
+        state = row['State']
+        country_code = row['Country_code']
+    
     return (
-        f"{row['Species_code']} ({row['Sample Type']})\n"
-        f"{row['Band_no']}\n"
-        f"Ext: {row['Date']}\n"
-        f"{row['CityTown']}, {row['State']} {row['Country_code']}"
+        f"{species_code} ({sample_type})\n"
+        f"{band_no}\n"
+        f"Ext: {date}\n"
+        f"{city_town}, {state} {country_code}"
     )
 
 # Function for Top Labels formatting
-def format_top_labels(row):
+def format_top_labels(row, column_mapping=None):
+    # Use column mapping if provided
+    if column_mapping:
+        species_code = row[column_mapping['Species_code']]
+        bgp_id = row[column_mapping['BGP_ID']]
+    else:
+        species_code = row['Species_code']
+        bgp_id = row['BGP_ID']
+    
     # Split the BGP_ID into parts based on the delimiter 'N'
-    bgp_id_parts = row['BGP_ID'].split('N')
+    bgp_id_parts = str(bgp_id).split('N')
 
     # Handle cases where 'N' is not found or there are more than two parts
     if len(bgp_id_parts) == 2:
@@ -94,20 +120,26 @@ def format_top_labels(row):
         bgp_id_second_part = bgp_id_parts[1]
     else:
         # If the delimiter 'N' is not found or there are more than 2 parts, handle accordingly
-        bgp_id_first_part = row['BGP_ID']  # Keep it as-is if 'N' is not found
+        bgp_id_first_part = str(bgp_id)  # Keep it as-is if 'N' is not found
         bgp_id_second_part = ''
 
     # Return the formatted block of text
     return (
-        f"{row['Species_code']}\n"
+        f"{species_code}\n"
         f"{bgp_id_first_part}\n"
         f"{bgp_id_second_part}"
     )
 
 # Function for Tissue/Blood Tube Labels formatting
-def format_tissue_labels(row):
+def format_tissue_labels(row, column_mapping=None):
+    # Use column mapping if provided
+    if column_mapping:
+        bgp_id = row[column_mapping['BGP_ID']]
+    else:
+        bgp_id = row['BGP_ID']
+    
     # Split the BGP_ID into parts based on the delimiter 'N'
-    bgp_id_parts = row['BGP_ID'].split('N')
+    bgp_id_parts = str(bgp_id).split('N')
 
     # Handle cases where 'N' is not found or there are more than two parts
     if len(bgp_id_parts) == 2:
@@ -115,7 +147,7 @@ def format_tissue_labels(row):
         bgp_id_second_part = bgp_id_parts[1]
     else:
         # If the delimiter 'N' is not found or there are more than 2 parts, handle accordingly
-        bgp_id_first_part = row['BGP_ID']  # Keep it as-is if 'N' is not found
+        bgp_id_first_part = str(bgp_id)  # Keep it as-is if 'N' is not found
         bgp_id_second_part = ''
 
     # Return the formatted block of text
@@ -126,7 +158,7 @@ def format_tissue_labels(row):
     )
 
 # Function to process labels based on type
-def process_labels(df, doc, label_type):
+def process_labels(df, doc, label_type, column_mapping=None):
     try:
         if not doc.tables:
             raise Exception("No tables found in the document.")
@@ -135,13 +167,13 @@ def process_labels(df, doc, label_type):
         
         # Get the appropriate formatting function
         if label_type == "Side Labels":
-            format_function = format_side_labels
+            format_function = lambda row: format_side_labels(row, column_mapping)
             output_filename = "side_labels_output.docx"
         elif label_type == "Top Labels":
-            format_function = format_top_labels
+            format_function = lambda row: format_top_labels(row, column_mapping)
             output_filename = "top_labels_output.docx"
         else:  # Tissue/Blood Tube Labels
-            format_function = format_tissue_labels
+            format_function = lambda row: format_tissue_labels(row, column_mapping)
             output_filename = "tissue_labels_output.docx"
         
         # Generate formatted texts
@@ -213,34 +245,55 @@ if csv_file is not None:
         st.dataframe(df.head(10))
         st.info(f"Loaded {len(df)} rows and {len(df.columns)} columns")
         
-        # Show required columns based on label type
-        with st.expander("Required Columns for Selected Label Type"):
-            if label_type == "Side Labels":
-                required_cols = ['Species_code', 'Sample Type', 'Band_no', 'Date', 'CityTown', 'State', 'Country_code']
-                st.write("Required columns:", required_cols)
-                missing_cols = [col for col in required_cols if col not in df.columns]
-                if missing_cols:
-                    st.error(f"Missing required columns: {missing_cols}")
+        # Column mapping interface
+        st.subheader("🔗 Map Your Columns")
+        
+        # Define required columns for each label type
+        required_columns = {
+            "Side Labels": ['Species_code', 'Sample Type', 'Band_no', 'Date', 'CityTown', 'State', 'Country_code'],
+            "Top Labels": ['Species_code', 'BGP_ID'],
+            "Tissue/Blood Tube Labels": ['BGP_ID']
+        }
+        
+        required_cols = required_columns[label_type]
+        available_cols = ['-- Select Column --'] + list(df.columns)
+        
+        # Create column mapping
+        column_mapping = {}
+        all_mapped = True
+        
+        st.write(f"Map the required columns for **{label_type}** to your CSV columns:")
+        
+        # Create mapping interface
+        cols = st.columns(2)
+        for i, required_col in enumerate(required_cols):
+            with cols[i % 2]:
+                # Try to find exact match first
+                default_index = 0
+                if required_col in df.columns:
+                    default_index = available_cols.index(required_col)
+                
+                selected_col = st.selectbox(
+                    f"**{required_col}**:",
+                    available_cols,
+                    index=default_index,
+                    key=f"mapping_{required_col}"
+                )
+                
+                if selected_col != '-- Select Column --':
+                    column_mapping[required_col] = selected_col
                 else:
-                    st.success("All required columns present!")
-            
-            elif label_type == "Top Labels":
-                required_cols = ['Species_code', 'BGP_ID']
-                st.write("Required columns:", required_cols)
-                missing_cols = [col for col in required_cols if col not in df.columns]
-                if missing_cols:
-                    st.error(f"Missing required columns: {missing_cols}")
-                else:
-                    st.success("All required columns present!")
-            
-            else:  # Tissue/Blood Tube Labels
-                required_cols = ['BGP_ID']
-                st.write("Required columns:", required_cols)
-                missing_cols = [col for col in required_cols if col not in df.columns]
-                if missing_cols:
-                    st.error(f"Missing required columns: {missing_cols}")
-                else:
-                    st.success("All required columns present!")
+                    all_mapped = False
+        
+        # Show mapping status
+        if all_mapped:
+            st.success("✅ All columns mapped successfully!")
+            with st.expander("View Column Mapping"):
+                for req_col, csv_col in column_mapping.items():
+                    st.write(f"**{req_col}** → {csv_col}")
+        else:
+            missing_mappings = [col for col in required_cols if col not in column_mapping]
+            st.warning(f"⚠️ Please map these columns: {', '.join(missing_mappings)}")
         
         # Show available columns
         with st.expander("Available Columns in Your CSV"):
@@ -251,7 +304,7 @@ if csv_file is not None and df is not None:
     # Check if we have a template (either uploaded or built-in)
     has_template = template_file is not None or template_option == "Use Built-in Template"
     
-    if has_template:
+    if has_template and all_mapped:
         if st.button("🚀 Generate Labels", type="primary"):
             with st.spinner(f"Generating {label_type.lower()}..."):
                 try:
@@ -266,8 +319,8 @@ if csv_file is not None and df is not None:
                     else:
                         doc = Document(template_file)
                     
-                    # Process the labels
-                    processed_doc, output_filename = process_labels(df, doc, label_type)
+                    # Process the labels with column mapping
+                    processed_doc, output_filename = process_labels(df, doc, label_type, column_mapping)
                     
                     if processed_doc is not None:
                         # Save to temporary file
@@ -294,8 +347,10 @@ if csv_file is not None and df is not None:
                 except Exception as e:
                     st.error(f"Error generating labels: {str(e)}")
                     st.exception(e)
-    else:
+    elif not has_template:
         st.warning("Please select a template option or upload a custom template.")
+    elif not all_mapped:
+        st.warning("Please map all required columns before generating labels.")
 else:
     if csv_file is None:
         st.info("👆 Please upload a CSV file to get started.")
