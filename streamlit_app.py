@@ -34,14 +34,31 @@ with col1:
     )
 
 with col2:
-    st.subheader("📋 Upload Word Template")
-    template_file = st.file_uploader(
-        "Choose a Word template file",
-        type=['docx'],
-        help="Upload your Word document template"
+    st.subheader("📋 Template Selection")
+    template_option = st.radio(
+        "Choose template source:",
+        ["Use Built-in Template", "Upload Custom Template"],
+        help="Use the built-in template or upload your own"
     )
+    
+    if template_option == "Upload Custom Template":
+        template_file = st.file_uploader(
+            "Choose a Word template file",
+            type=['docx'],
+            help="Upload your Word document template"
+        )
+    else:
+        template_file = None
+        st.info("Using built-in template for selected label type")
 
-# Function to load CSV with multiple encoding attempts
+# Function to get template path based on label type
+def get_template_path(label_type):
+    template_mapping = {
+        "Side Labels": "templates/side_label.docx",
+        "Top Labels": "templates/top_label.docx", 
+        "Tissue/Blood Tube Labels": "templates/tissue_label.docx"
+    }
+    return template_mapping.get(label_type)
 def load_csv_with_encodings(csv_file):
     encodings = ['utf-8', 'ISO-8859-1', 'cp1252']
     
@@ -230,41 +247,58 @@ if csv_file is not None:
             st.write(list(df.columns))
 
 # Generate labels button
-if csv_file is not None and template_file is not None and df is not None:
-    if st.button("🚀 Generate Labels", type="primary"):
-        with st.spinner(f"Generating {label_type.lower()}..."):
-            try:
-                # Load the Word document
-                doc = Document(template_file)
-                
-                # Process the labels
-                processed_doc, output_filename = process_labels(df, doc, label_type)
-                
-                if processed_doc is not None:
-                    # Save to temporary file
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_file:
-                        processed_doc.save(tmp_file.name)
-                        
-                        # Read file for download
-                        with open(tmp_file.name, 'rb') as f:
-                            doc_bytes = f.read()
-                        
-                        # Clean up temp file
-                        os.unlink(tmp_file.name)
+if csv_file is not None and df is not None:
+    # Check if we have a template (either uploaded or built-in)
+    has_template = template_file is not None or template_option == "Use Built-in Template"
+    
+    if has_template:
+        if st.button("🚀 Generate Labels", type="primary"):
+            with st.spinner(f"Generating {label_type.lower()}..."):
+                try:
+                    # Load the appropriate template
+                    if template_option == "Use Built-in Template":
+                        template_path = get_template_path(label_type)
+                        if os.path.exists(template_path):
+                            doc = Document(template_path)
+                        else:
+                            st.error(f"Built-in template not found: {template_path}")
+                            st.stop()
+                    else:
+                        doc = Document(template_file)
                     
-                    st.success(f"{label_type} generated successfully!")
+                    # Process the labels
+                    processed_doc, output_filename = process_labels(df, doc, label_type)
                     
-                    # Download button
-                    st.download_button(
-                        label="📥 Download Generated Labels",
-                        data=doc_bytes,
-                        file_name=output_filename,
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    )
-                
-            except Exception as e:
-                st.error(f"Error generating labels: {str(e)}")
-                st.exception(e)
+                    if processed_doc is not None:
+                        # Save to temporary file
+                        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp_file:
+                            processed_doc.save(tmp_file.name)
+                            
+                            # Read file for download
+                            with open(tmp_file.name, 'rb') as f:
+                                doc_bytes = f.read()
+                            
+                            # Clean up temp file
+                            os.unlink(tmp_file.name)
+                        
+                        st.success(f"{label_type} generated successfully!")
+                        
+                        # Download button
+                        st.download_button(
+                            label="📥 Download Generated Labels",
+                            data=doc_bytes,
+                            file_name=output_filename,
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        )
+                    
+                except Exception as e:
+                    st.error(f"Error generating labels: {str(e)}")
+                    st.exception(e)
+    else:
+        st.warning("Please select a template option or upload a custom template.")
+else:
+    if csv_file is None:
+        st.info("👆 Please upload a CSV file to get started.")
 
 # Instructions
 with st.expander("ℹ️ How to use this app"):
